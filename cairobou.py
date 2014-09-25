@@ -24,14 +24,22 @@ def circle():
 	height = cairo.ImageSurface.get_height(image)
 	
 	size = max(width, height)
-
 	surface = cairo.PDFSurface(g_options.out, size, size)
 	cr = cairo.Context(surface)
 
-	cr.arc(size/2, size/2, min(width,height)/2, 0, 2*math.pi)
-	cr.clip()
-	cr.set_source_surface(image, 0, height/4)
-	cr.paint()
+	imageCount = len(g_images)
+	radius = min(width, height)/2
+	d = 30
+	loop = 0
+	while radius > 50:
+		image = cairo.ImageSurface.create_from_png(g_images[loop % imageCount])
+		cr.arc(size/2, size/2, radius, 0, 2*math.pi)
+		cr.clip()
+		cr.set_source_surface(image, 0, height/4)
+		cr.paint()
+
+		radius -= d
+		loop+=1
 
 def main():
 	# SetUp OptionParser
