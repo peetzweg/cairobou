@@ -18,6 +18,21 @@ MM = INCH / 25.4 # 25.4 milimeters (mm) = 1 in
 CM = INCH / 2.54 # 2.54 centimetes (cm) = 1 in
 A4_WIDTH, A4_HEIGHT = INCH * 8.3, INCH * 11.7 # DIN A4 Paper is 297mm heigh and 210mm wide
 
+def circle():
+	image = cairo.ImageSurface.create_from_png(g_images[0])
+	width = cairo.ImageSurface.get_width(image)
+	height = cairo.ImageSurface.get_height(image)
+	
+	size = max(width, height)
+
+	surface = cairo.PDFSurface(g_options.out, size, size)
+	cr = cairo.Context(surface)
+
+	cr.arc(size/2, size/2, min(width,height)/2, 0, 2*math.pi)
+	cr.clip()
+	cr.set_source_surface(image, 0, height/4)
+	cr.paint()
+
 def main():
 	# SetUp OptionParser
 	usage = "usage: %prog [options] images*"
@@ -50,6 +65,8 @@ def main():
 			logging.debug("\t%s",str(image))
 	elif(g_options.verbose):
 		logging.basicConfig(format='%(message)s', level="INFO")
+
+	circle()
 
 	return 0
 
