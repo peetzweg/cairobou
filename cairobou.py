@@ -16,11 +16,13 @@ A4_WIDTH, A4_HEIGHT = INCH * 8.3, INCH * 11.7 # DIN A4 Paper is 297mm heigh and 
 
 
 # global attributes
-SURFACE_SIZE = False
 GAP = False
-STEPS = False
+BIGGEST_SIDE = False
+SMALLEST_SIDE = False
 
-
+#####################
+# Clipping Function #
+#####################
 def clipCircle(context, cx, cy, r):
 	context.arc(cx, cy, r, 0, 2*math.pi)
 	context.clip()
@@ -39,71 +41,92 @@ def clipEquiTriangle(context, cx, cy, height):
 	context.line_to(startX, startY)
 	context.clip()
 
-def doIt(output, images):
-	image = cairo.ImageSurface.create_from_png(images[0])
-	width = cairo.ImageSurface.get_width(image)
-	height = cairo.ImageSurface.get_height(image)
+#####################
+# Creating Function #
+#####################
+def doTriangles(context, images):
+	imageCount = len(images)
+
+	triangleHeight = SMALLEST_SIDE
+	cx = BIGGEST_SIDE/2.0
+	cy = BIGGEST_SIDE/2.0 + (triangleHeight/6)
+
+	loop = 0
+	while triangleHeight > 50:
+		image = images[loop % imageCount]
+
+		clipEquiTriangle(context, cx, cy, triangleHeight)
+
+		context.set_source_surface(image, 0, (BIGGEST_SIDE - cairo.ImageSurface.get_height(image))/2)
 	
-	size = max(width, height)
+		context.paint()
+
+		triangleHeight -= GAP
+		loop += 1
+
+def doCircles(context, images):
+	imageCount = len(images)
+	size = BIGGEST_SIDE
+	radius = SMALLEST_SIDE / 2
+	d = 30
+	loop = 0
+
+	while radius > 50:
+		image = images[loop % imageCount]
+	
+		clipCircle(context, size/2, size/2, radius)
+
+		context.set_source_surface(image, 0, (BIGGEST_SIDE-cairo.ImageSurface.get_height(image))/2)
+		context.paint()
+
+		radius -= d
+		loop += 1
+
+#########################
+# Preparation Functions #
+#########################
+def createImageSurfaces(imagePaths):
+	images = []
+	for path in imagePaths:
+		images.append(cairo.ImageSurface.create_from_png(path))
+	return images
+
+def determineImageSurface(imageSurfaces):
+	logging.debug("Searching for the smallest and biggest side among given images")
+	overallSmallest = sys.maxint
+	overallBiggest = 0
+	
+	for image in imageSurfaces:
+		width = cairo.ImageSurface.get_width(image)
+		height = cairo.ImageSurface.get_height(image)
+
+		imageSmallest = min(width, height)
+		overallSmallest = min(overallSmallest, imageSmallest)
+
+		imageBiggest = max(width, height)
+		overallBiggest = max(overallBiggest, imageBiggest)
+
+	logging.debug("Smallest: %d Biggest: %d", overallSmallest, overallBiggest)
+	global SMALLEST_SIDE, BIGGEST_SIDE
+	SMALLEST_SIDE = overallSmallest
+	BIGGEST_SIDE = overallBiggest
+
+def createContext(output, images):
+	# determine the smallest side of all images and making the drawing surface slightly bigger
+	global BIGGEST_SIDE
+	size = BIGGEST_SIDE
+	
 	extension = os.path.splitext(output)[1]
+	logging.debug("Creating %sSurface with the size of %d, %d", extension.upper(), size,size)
+	
 	surface = False
 	if(extension == ".pdf"):
 		surface = cairo.PDFSurface(output, size, size)
 	elif(extension == ".svg"):
 		surface = cairo.SVGSurface(output, size, size)
 
-	cr = cairo.Context(surface)
-
-	#doCircles(cr, images)
-	doTriangles(cr, images)
-
-def doTriangles(context, images):
-	image = cairo.ImageSurface.create_from_png(images[0])
-	width = cairo.ImageSurface.get_width(image)
-	height = cairo.ImageSurface.get_height(image)
-
-	imageCount = len(images)
-	loop = 0
-	size = max(width,height)
-	
-	triangleHeight = height
-	while triangleHeight > 50:
-		image = cairo.ImageSurface.create_from_png(images[loop % imageCount])
-	
-		cx = size/2.0
-		cy = size/2.0 + (height/6)
-		logging.debug("height: %d, center(%f.2|%f.2)",triangleHeight,cx,cy)
-		clipEquiTriangle(context, cx, cy, triangleHeight)
-
-		context.set_source_surface(image, 0, (size-height)/2)
-		context.paint()
-
-		triangleHeight -= GAP
-		loop += 1
-
-
-
-def doCircles(context, images):
-	image = cairo.ImageSurface.create_from_png(images[0])
-	width = cairo.ImageSurface.get_width(image)
-	height = cairo.ImageSurface.get_height(image)
-
-	imageCount = len(images)
-	size = max(width,height)
-	radius = min(width, height)/2
-	d = 30
-	loop = 0
-
-	while radius > 50:
-		image = cairo.ImageSurface.create_from_png(images[loop % imageCount])
-	
-		clipCircle(context, size/2, size/2, radius)
-
-		context.set_source_surface(image, 0, height/4)
-		context.paint()
-
-		radius -= d
-		loop += 1
+	context = cairo.Context(surface)
+	return context
 
 def main():
 	# SetUp OptionParser
@@ -118,10 +141,10 @@ def main():
 	parser.add_option("-d", "--debug", action="store_true",
 					help="print status and debug messages to stdout", default=False)
 
-	(options, images) = parser.parse_args()
+	(options, imagePaths) = parser.parse_args()
 
 	# checking if enough images are specified
-	if(len(images)<1):
+	if(len(imagePaths)<1):
 		parser.error("At least one image has to be specified!")
 		return 1
 
@@ -139,9 +162,9 @@ def main():
 		for option in parser.option_list:
 			if(option.dest != None):
 				logging.debug("%s = %s", option, getattr(options, option.dest))
-		logging.debug("Processing %d image(s):", len(images))
-		for image in images:
-			logging.debug("\t%s",str(image))
+		logging.debug("Processing %d image(s):", len(imagePaths))
+		for path in imagePaths:
+			logging.debug("\t%s",str(path))
 	elif(options.verbose):
 		logging.basicConfig(format='%(message)s', level="INFO")
 
@@ -149,7 +172,12 @@ def main():
 	global GAP
 	GAP = options.gap
 
-	doIt(options.out, images)
+	images = createImageSurfaces(imagePaths)
+	determineImageSurface(images)
+	context = createContext(options.out, images)
+
+	#doCircles(context, images)
+	doTriangles(context, images)
 
 	return 0
 
