@@ -14,22 +14,29 @@ MM = INCH / 25.4 # 25.4 milimeters (mm) = 1 in
 CM = INCH / 2.54 # 2.54 centimetes (cm) = 1 in
 A4_WIDTH, A4_HEIGHT = INCH * 8.3, INCH * 11.7 # DIN A4 Paper is 297mm heigh and 210mm wide
 
+
+# global attributes
+SURFACE_SIZE = False
+GAP = False
+STEPS = False
+
+
 def clipCircle(context, cx, cy, r):
 	context.arc(cx, cy, r, 0, 2*math.pi)
 	context.clip()
 
 def clipCube(context, cx, cy, a):
-	context.rectangle(cx-(a/2), cy-(a/2), a, a)
+	context.rectangle(cx - (a / 2), cy - (a / 2), a, a)
 	context.clip()
 
-def clipSineWave(context, cx, cy , amplitude, width):
-	start = cx - width/2
-	end = cx + width/2
-
-	context.move_to(start, cy)
-	context.curve_to(cx-width/4,cy+amplitude, cx, cy, cx+width/4, cy-amplitude)
-	context.set_line_width(30)
-	context.stroke()
+def clipEquiTriangle(context, cx, cy, height):
+	side = height / (math.sqrt(3.0) / 2)
+	startX = cx - (side / 2)
+	startY = cy + (height / 3.0)
+	context.move_to(startX, startY)
+	context.rel_line_to(side, 0)
+	context.rel_line_to(-side/2, -height)
+	context.line_to(startX, startY)
 	context.clip()
 
 def doIt(output, images):
@@ -47,7 +54,42 @@ def doIt(output, images):
 
 	cr = cairo.Context(surface)
 
+	#doCircles(cr, images)
+	doTriangles(cr, images)
+
+def doTriangles(context, images):
+	image = cairo.ImageSurface.create_from_png(images[0])
+	width = cairo.ImageSurface.get_width(image)
+	height = cairo.ImageSurface.get_height(image)
+
 	imageCount = len(images)
+	loop = 0
+	size = max(width,height)
+	
+	triangleHeight = height
+	while triangleHeight > 50:
+		image = cairo.ImageSurface.create_from_png(images[loop % imageCount])
+	
+		cx = size/2.0
+		cy = size/2.0 + (height/6)
+		logging.debug("height: %d, center(%f.2|%f.2)",triangleHeight,cx,cy)
+		clipEquiTriangle(context, cx, cy, triangleHeight)
+
+		context.set_source_surface(image, 0, (size-height)/2)
+		context.paint()
+
+		triangleHeight -= GAP
+		loop += 1
+
+
+
+def doCircles(context, images):
+	image = cairo.ImageSurface.create_from_png(images[0])
+	width = cairo.ImageSurface.get_width(image)
+	height = cairo.ImageSurface.get_height(image)
+
+	imageCount = len(images)
+	size = max(width,height)
 	radius = min(width, height)/2
 	d = 30
 	loop = 0
@@ -55,14 +97,13 @@ def doIt(output, images):
 	while radius > 50:
 		image = cairo.ImageSurface.create_from_png(images[loop % imageCount])
 	
-		#clipSineWave(cr, size/2, size/2,height/2,width)
-		clipCircle(cr, size/2, size/2, radius)
+		clipCircle(context, size/2, size/2, radius)
 
-		cr.set_source_surface(image, 0, height/4)
-		cr.paint()
+		context.set_source_surface(image, 0, height/4)
+		context.paint()
 
 		radius -= d
-		loop+=1
+		loop += 1
 
 def main():
 	# SetUp OptionParser
@@ -70,6 +111,8 @@ def main():
 	parser = optparse.OptionParser(usage = usage)
 	parser.add_option("-o", "--out", dest="out", type="string",
 					help="specify output file", default="output.svg")
+	parser.add_option("-g", "--gap", dest="gap", type="int",
+					help="difference between the images", default=50)
 	parser.add_option("-v", "--verbose", action="store_true",
 					help="print status messages to stdout", default=False)
 	parser.add_option("-d", "--debug", action="store_true",
@@ -101,7 +144,11 @@ def main():
 			logging.debug("\t%s",str(image))
 	elif(options.verbose):
 		logging.basicConfig(format='%(message)s', level="INFO")
-	
+
+	# Storing global attributs
+	global GAP
+	GAP = options.gap
+
 	doIt(options.out, images)
 
 	return 0
