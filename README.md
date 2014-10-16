@@ -6,8 +6,10 @@ Command line tool to create remixes of given images.
 ![ScreenShot](ExampleTriangles.png)
 
 ## Info
+
 * It's not working very robustly if the given images have big differences in size.
 * You can generate PDFs by using the -o option and use the extension '.pdf' for the output file.
+
 ## Quick start
 	Usage: cairobou.py [options] images*
 
