@@ -68,10 +68,10 @@ def doCircles(context, images):
 	imageCount = len(images)
 	size = BIGGEST_SIDE
 	radius = SMALLEST_SIDE / 2
-	d = 30
+	d = GAP
 	loop = 0
 
-	while radius > 50:
+	while radius > GAP:
 		image = images[loop % imageCount]
 	
 		clipCircle(context, size/2, size/2, radius)
@@ -176,8 +176,8 @@ def main():
 	determineImageSurface(images)
 	context = createContext(options.out, images)
 
-	#doCircles(context, images)
-	doTriangles(context, images)
+	doCircles(context, images)
+	#doTriangles(context, images)
 
 	return 0
 
