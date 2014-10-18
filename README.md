@@ -1,9 +1,7 @@
 # cairobou
 Command line tool to create remixes of given images.
 
-![ScreenShot](ExampleCircles.png)
-
-![ScreenShot](ExampleTriangles.png)
+![ScreenShot](Examples.png)
 
 ## Info
 
